@@ -14,9 +14,8 @@ fast = cv2.FastFeatureDetector_create(threshold=25, nonmaxSuppression=False)
 # find and draw the keypoints
 kp = fast.detect(img, None)
 kp_nms = fast_nms.detect(img,None)
-temp = np.zeros(shape=img.shape)
-img2 = cv2.drawKeypoints(img, kp, temp, color=(255, 0, 0))
-img2_nms = cv2.drawKeypoints(img, kp_nms, temp, color=(255, 0, 0))
+img2 = cv2.drawKeypoints(img, kp, None, color=(255, 0, 0))
+img2_nms = cv2.drawKeypoints(img, kp_nms, None, color=(255, 0, 0))
 
 # # Print all default params
 # print("Threshold: ", fast.getInt('threshold'))
