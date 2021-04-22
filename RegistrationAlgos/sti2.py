@@ -1,8 +1,3 @@
-'''
-Noise: https://theailearner.com/2019/05/07/add-different-noise-to-an-image/
-Affine transform: https://www.geeksforgeeks.org/python-opencv-affine-transformation/
-'''
-
 import cv2
 import numpy as np
 import time
@@ -12,8 +7,7 @@ from split import start_points, image_split
 # image2 = cv2.imread('/Users/davinderkumar/Essentials/LOP/img/IX-11-01917_0004_0003.JPG', 0)
 path = '/Users/davinderkumar/Essentials/LOP/img/IX-11-01917_0004_00'
 path2 = '/Users/davinderkumar/Essentials/LOP/img/IX-11-01917_0004_02'
-p = "/Volumes/Seagate Portable/LOP/Data/images/P0"
-# p = "/Users/davinderkumar/Desktop/images/P0"
+p = "/Users/davinderkumar/Desktop/images/P0"
 im1 = '/Users/davinderkumar/Desktop/images/P0010.png'
 im2 = '/Users/davinderkumar/Desktop/images/P0011.png'
 img = "/Users/davinderkumar/Desktop/images/P0831.png"
@@ -35,31 +29,8 @@ def surf(image1, image2):
     return kp1, des1, kp2, des2
 
 
-def create_mask(img1, img2, version):
-    height_img1 = img1.shape[0]
-    height_img2 = img2.shape[0]
-    width_img1 = img1.shape[1]
-    width_img2 = img2.shape[1]
-    height_panorama = height_img1 + height_img2
-    width_panorama = width_img1 + width_img2
-    offset = int(smoothing_window_size / 2)
-    barrier = img1.shape[1] - int(smoothing_window_size / 2)
-    mask = np.zeros((height_panorama, width_panorama))
-    if version == 'left_image':
-        mask[:, barrier - offset:barrier + offset] = np.tile(np.linspace(1, 0, 2 * offset).T, (height_panorama, 1))
-        mask[:, :barrier - offset] = 1
-    else:
-        mask[:, barrier - offset:barrier + offset] = np.tile(np.linspace(0, 1, 2 * offset).T, (height_panorama, 1))
-        mask[:, barrier + offset:] = 1
-    return cv2.merge([mask, mask, mask])
-
-
-def stitch(image1, image2, function):
-
-    image1_bw = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
-    image2_bw = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
-
-    kp1, des1, kp2, des2 = function(image1_bw, image2_bw)  # Detecting keypoints using GrayScale
+def stitch(image1, image2, function, _):
+    kp1, des1, kp2, des2 = function(image1, image2)
     print("Keypoints detected")
 
     match = cv2.BFMatcher()
@@ -67,59 +38,54 @@ def stitch(image1, image2, function):
     print("Keypoints matched")
 
     good = []
-    # David Lowe's ratio test
     for m, n in matches:
-        if m.distance < 0.6 * n.distance:
+        if m.distance < 0.002 * n.distance:
             good.append(m)
 
     print(len(good))
 
-    # draw_params = dict(matchColor = (0, 155, 0),  # draw matches (inliers as well outliers) in green color
-    #                    singlePointColor = None,
-    #                    flags = 2)
-    # img3 = cv2.drawMatches(image1, kp1, image2, kp2, good, None, **draw_params)
+    draw_params = dict(matchColor = (0, 155, 0),  # draw matches in green color
+                       singlePointColor = None,
+                       flags = 2)
+    img3 = cv2.drawMatches(image1, kp1, image2, kp2, good, None, **draw_params)
 
     # cv2.imshow("original_image_drawMatches.jpg", img3)
     # cv2.waitKey(0)
+    if function == surf:
+        cv2.imwrite('compare/' + str(_) + "_surf.png", img3)
+
+    if function == sift:
+        cv2.imwrite('compare/' + str(_) + "_sift.png", img3)
 
     # Find the Homography transformation
 
-    MIN_MATCH_COUNT = 10
-    if len(good) > MIN_MATCH_COUNT:
-        src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-        dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0) 
+    # MIN_MATCH_COUNT = 10
+    # if len(good) > MIN_MATCH_COUNT:
+    #     src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+    #     dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+    #     M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0) 
 
-        h2, w2 = image1_bw.shape 
-        h, w = image2_bw.shape
-        pts = np.float32([[0, 0], [0, h], [w, h], [w, 0]]).reshape(-1, 1, 2)
-        temp_points = np.float32([[0, 0], [0, h2], [w2, h2], [w2, 0]]).reshape(-1, 1, 2)
-        dst = cv2.perspectiveTransform(temp_points, M)    
-        list_of_points = np.concatenate((pts, dst), axis=0)
-
-        [x_min, y_min] = np.int32(list_of_points.min(axis=0).ravel() - 0.5)
-        [x_max, y_max] = np.int32(list_of_points.max(axis=0).ravel() + 0.5)
-        print(x_max, ' ', x_min, ' ', y_max, ' ', y_min)
-        translation_dist = [-x_min, -y_min]
-
-        H_translation = np.array([[1, 0, translation_dist[0]], [0, 1, translation_dist[1]], [0, 0, 1]])
-
-        # image2_bw = cv2.polylines(image2_bw, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
+    #     if len(image1.shape) > 2:
+    #         h, w, _ = image1.shape
+    #     else:
+    #         h, w = image1.shape          
+    #     pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+    #     dst = cv2.perspectiveTransform(pts, M)    
+    #     image2 = cv2.polylines(image2, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
 
     #     # cv2.imshow("original_image_overlapping.jpg", image2)
     #     # cv2.waitKey(0)
-    else:
-        print("Not enough matches are found - %d/%d" % (len(good), MIN_MATCH_COUNT))
+    # else:
+    #     print("Not enough matches are found - %d/%d" % (len(good), MIN_MATCH_COUNT))
 
     # print("Homography computed")
-    dst = cv2.warpPerspective(image1, H_translation.dot(M), (x_max - x_min, y_max - y_min))
-    print(image1.shape)
-    print(translation_dist)
-    print(dst.shape)
-    dst[translation_dist[1]:image2.shape[0] + translation_dist[1], translation_dist[0]:image2.shape[1] + translation_dist[0]] = image2
-    # cv2.imshow("original_image_stitched.jpg", dst)
-    # cv2.waitKey(0)
-    return dst
+    # dst = cv2.warpPerspective(image1, M, (image2.shape[1] + image1.shape[1], image2.shape[0]))
+
+    # dst[0:image2.shape[0], 0:image2.shape[1]] = image2
+
+    # # # cv2.imshow("original_image_stitched.jpg", dst)
+    # # # cv2.waitKey(0)
+    # return dst
 
 
 def trim(frame):
@@ -224,37 +190,16 @@ for _ in range(0, 907):
         im = cv2.imread(p1)
         if not im.any():
             continue
-    except Exception as e: 
-        print(e)
+    except:
         continue
 
-    split_imgs = image_split(p1, str(_))
-    import matplotlib.pyplot as pyplot
-    pyplot.imshow(split_imgs[0])
-    pyplot.show()
-    pyplot.imshow(split_imgs[1])
-    pyplot.show()
-    break
+    try:
+        split_imgs = image_split(p1, str(_))
+    except:
+        continue
 
     t1 = time.time()
-    dst = stitch(split_imgs[0], split_imgs[1], sift)
-    for jkl in range(10):
-        dst = trim(dst)
-    print(str(_) + " sift")
-    print("Time = ", time.time() - t1) 
-
-    x = cv2.imwrite('compare/' + str(_) + "_sift_output.jpg", dst)
-    print(x)
-
-    t2 = time.time()
-    dst = stitch(split_imgs[0], split_imgs[1], surf)
-    for jkl in range(10):
-        dst = trim(dst)
-
-    print(str(_) + " sift")
-    print("Time = ", time.time() - t1) 
-    x = cv2.imwrite('compare/' + str(_) + "_surf_output.jpg", dst)
-    print(x)
+    dst = stitch(split_imgs[0], split_imgs[1], surf, _)
 
 
 # for _ in range(50, 100):

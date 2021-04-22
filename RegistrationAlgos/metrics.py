@@ -8,6 +8,9 @@ from math import log10, sqrt
 import sklearn.metrics
 warnings.filterwarnings('error')
 
+p = "/Volumes/Seagate Portable/LOP/Data/images/P0"
+output_file = './output.txt'
+
 
 def mse(imageA, imageB):
     # the 'Mean Squared Error' between the two images is the
@@ -29,6 +32,7 @@ def compare_images(imageA, imageB, title):
     imageB = cv2.resize(imageB, dsize=imageA.shape[::-1][1:])
     m = mse(imageA, imageB)
     s = ssim(imageA, imageB, multichannel=True)
+    return s
     print(s)
     # setup the figure
     # fig = plt.figure(title)
@@ -51,7 +55,7 @@ def PSNR(image1, image2):
     image2 = cv2.resize(image2, dsize=image1.shape[::-1][1:])
     mse = np.mean((image1 - image2) ** 2) 
     if(mse == 0):  # MSE is zero means no noise is present in the signal . 
-                  # Therefore PSNR have no importance. 
+        # Therefore PSNR have no importance. 
         return 100
     max_pixel = 255.0
     psnr = 20 * log10(max_pixel / sqrt(mse)) 
@@ -66,24 +70,45 @@ def mutual_information(image1, image2):
     return sklearn.metrics.mutual_info_score(image1.ravel()[:size], image2.ravel()[:size])
 
 
-image1 = cv2.imread('./Codes/RegistrationAlgos/input1.jpg', 0)
-image2 = cv2.imread('./Codes/RegistrationAlgos/input2.jpg', 0)
-image3 = cv2.imread('./Codes/RegistrationAlgos/final.jpg', 0)
+# image1 = cv2.imread('/Users/davinderkumar/Essentials/LOP/Codes/RegistrationAlgos/compare/img1.jpg')
+# image2 = cv2.imread('/Users/davinderkumar/Essentials/LOP/Codes/RegistrationAlgos/compare/img2.jpg')
+# image3 = cv2.imread('./Codes/RegistrationAlgos/final.jpg')
+
+for _ in range(0, 907):
+
+    if(_ <= 9):
+        p1 = p + '00' + str(_) + '.png'
+    elif(_ <= 99):
+        p1 = p + '0' + str(_) + '.png'
+    else:
+        p1 = p + str(_) + '.png'
+
+    try:
+        im = cv2.imread(p1)
+        if not im.any():
+            continue
+    except Exception as e: 
+        print(e)
+        continue
+
+    ground_truth = im
+    surf_path = "/Users/davinderkumar/Essentials/LOP/Codes/RegistrationAlgos/compare/{}_surf_output.jpg".format(_)
+    surf = cv2.imread(surf_path)
+    sift_path = "/Users/davinderkumar/Essentials/LOP/Codes/RegistrationAlgos/compare/{}_sift_output.jpg".format(_)
+    sift = cv2.imread(sift_path)
+    ssim_surf = compare_images(surf, ground_truth, "SURF")
+    ssim_sift = compare_images(surf, ground_truth, "SIFT")
+    mi_surf = mutual_information(ground_truth, surf)
+    mi_sift = mutual_information(ground_truth, sift)
+    psnr_surf = PSNR(ground_truth, surf)
+    psnr_sift = PSNR(ground_truth, sift)
+    output = f"{ssim_surf},{mi_surf},{psnr_surf}\n{ssim_sift},{mi_sift},{psnr_sift}\n"
+    with open(output_file, 'a') as op:
+        op.write(output)
+    print(_)
 
 
-ground_truth = cv2.imread('/Users/davinderkumar/Essentials/LOP/Codes/images/input2.JPG')
-
-surf = cv2.imread('/Users/davinderkumar/Essentials/LOP/Codes/2_surf_output.jpg')
-sift = cv2.imread('/Users/davinderkumar/Essentials/LOP/Codes/2_sift_output.jpg')
-
-compare_images(surf, ground_truth, "SURF")
-compare_images(sift, ground_truth, "SIFT")
-
-print(mutual_information(ground_truth, surf))
-print(mutual_information(ground_truth, sift))
-
-print(PSNR(ground_truth, surf))
-print(PSNR(ground_truth, sift))
+# print(PSNR(ground_truth, sift))
 
 # surf = cv2.imread('/Users/davinderkumar/Essentials/LOP/Codes/50co_RA_surf_output.jpg')
 # sift = cv2.imread('/Users/davinderkumar/Essentials/LOP/Codes/50co_RA_sift_output.jpg')
